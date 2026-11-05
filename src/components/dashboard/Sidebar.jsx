@@ -1,6 +1,7 @@
+import { NavLink } from 'react-router-dom'
 import Brand from '../Brand'
 import { BarChart3, Boxes, Home, LogOut, Package, Settings, ShieldCheck, ShoppingCart, UsersRound } from 'lucide-react'
-import { navigation, pagePermissions } from '../../lib/adminConfig'
+import { canViewPage, navigation, pagePaths } from '../../lib/adminConfig'
 
 const navigationIcons = {
   Overview: Home,
@@ -14,14 +15,11 @@ const navigationIcons = {
   Settings,
 }
 
-function Sidebar({ activePage, onNavigate, user, onLogout, menuOpen, closeMenu }) {
-  const canManageRoles = ['admin', 'super_admin'].includes(user.role)
+function Sidebar({ onLogout, user, menuOpen, closeMenu }) {
   const sections = navigation
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => item === 'Roles' || item === 'Users'
-        ? canManageRoles
-        : user.permissions?.includes(pagePermissions[item])),
+      items: section.items.filter((item) => canViewPage(user, item)),
     }))
     .filter((section) => section.items.length > 0)
 
@@ -37,17 +35,18 @@ function Sidebar({ activePage, onNavigate, user, onLogout, menuOpen, closeMenu }
               <p className="nav-section-title">{section}</p>
               {items.map((item) => {
                 const Icon = navigationIcons[item]
+                const path = pagePaths[item]
                 return (
-                  <button
-                    aria-current={activePage === item ? 'page' : undefined}
-                    className={`nav-item${activePage === item ? ' active' : ''}`}
+                  <NavLink
+                    className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                    end={path === '/'}
                     key={item}
-                    onClick={() => { onNavigate(item); closeMenu() }}
-                    type="button"
+                    onClick={closeMenu}
+                    to={path}
                   >
                     <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
                     {item}
-                  </button>
+                  </NavLink>
                 )
               })}
             </div>

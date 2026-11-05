@@ -1,24 +1,23 @@
 import { useState } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import DashboardHeader from './DashboardHeader'
 import PageHeading from './PageHeading'
-import Overview from './Overview'
-import ComingSoon from './ComingSoon'
-import RoleManagement from '../../modules/roles/RoleManagement'
-import UserManagement from '../../modules/users/UserManagement'
+import { useAuth } from '../../context/AuthContext'
+import { canViewPage, pageFromPath } from '../../lib/adminConfig'
 
-function Dashboard({ user, onLogout, authError }) {
-  const [activePage, setActivePage] = useState('Overview')
+function Dashboard() {
+  const { user, authError, signOut } = useAuth()
+  const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const activePage = pageFromPath(pathname) ?? 'Overview'
 
   return (
     <div className="admin-layout">
       <Sidebar
-        activePage={activePage}
         closeMenu={() => setMenuOpen(false)}
         menuOpen={menuOpen}
-        onLogout={onLogout}
-        onNavigate={setActivePage}
+        onLogout={signOut}
         user={user}
       />
       <main className="main-content">
@@ -30,14 +29,8 @@ function Dashboard({ user, onLogout, authError }) {
         />
         <div className="page-content">
           {authError && <p className="dashboard-error" role="alert">{authError}</p>}
-          <PageHeading activePage={activePage} user={user} />
-          {activePage === 'Overview'
-            ? <Overview />
-            : activePage === 'Roles'
-              ? <RoleManagement currentUser={user} />
-              : activePage === 'Users'
-                ? <UserManagement currentUser={user} />
-              : <ComingSoon page={activePage} />}
+          {canViewPage(user, activePage) && <PageHeading activePage={activePage} user={user} />}
+          <Outlet />
         </div>
       </main>
     </div>

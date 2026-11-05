@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Check, KeyRound, LockKeyhole, Pencil, Plus, Search, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react'
+import { Check, LockKeyhole, Pencil, Plus, Search, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { canManageRoles } from '../../lib/adminConfig'
 import { roleManagementApi } from '../../lib/api'
 import { confirmAction } from '../../lib/confirmAction'
 import { formatDate } from '../../lib/formatDate'
 import TablePageSizeSelect from '../../components/tables/TablePageSizeSelect'
 import TablePagination from '../../components/tables/TablePagination'
 
-const emptyRoleForm = { name: '', permissions: ['overview.view'] }
-
 function RoleManagement() {
+  const { user } = useAuth()
+  const canCreateRoles = canManageRoles(user)
   const [roles, setRoles] = useState([])
-  const [permissions, setPermissions] = useState([])
-  const [roleForm, setRoleForm] = useState(emptyRoleForm)
+  const [roleName, setRoleName] = useState('')
   const [editingSlug, setEditingSlug] = useState(null)
   const [roleDialogOpen, setRoleDialogOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -30,7 +31,6 @@ function RoleManagement() {
         const payload = await roleManagementApi.getRoles()
         if (!active) return
         setRoles(payload.roles)
-        setPermissions(payload.permissions)
       } catch (loadError) {
         if (active) setError(loadError.message)
       } finally {
@@ -43,14 +43,15 @@ function RoleManagement() {
   }, [])
 
   function closeRoleDialog() {
-    setRoleForm(emptyRoleForm)
+    setRoleName('')
     setEditingSlug(null)
     setRoleDialogOpen(false)
     setError('')
   }
 
   function createRole() {
-    setRoleForm(emptyRoleForm)
+    if (!canCreateRoles) return
+    setRoleName('')
     setEditingSlug(null)
     setError('')
     setRoleDialogOpen(true)
@@ -58,27 +59,16 @@ function RoleManagement() {
 
   async function editRole(role) {
     const confirmation = await confirmAction({
-      title: 'Edit role access?',
+      title: 'Edit this role?',
       text: `Changes to ${role.name} will affect every account assigned to this role.`,
       confirmButtonText: 'Edit',
     })
     if (!confirmation.isConfirmed) return
 
-    setRoleForm({ name: role.name, permissions: role.permissions })
+    setRoleName(role.name)
     setEditingSlug(role.slug)
     setError('')
     setRoleDialogOpen(true)
-  }
-
-  function togglePermission(permission) {
-    if (permission.required) return
-
-    setRoleForm((current) => ({
-      ...current,
-      permissions: current.permissions.includes(permission.key)
-        ? current.permissions.filter((key) => key !== permission.key)
-        : [...current.permissions, permission.key],
-    }))
   }
 
   async function saveRole(event) {
@@ -87,7 +77,7 @@ function RoleManagement() {
     setError('')
 
     try {
-      const payload = { name: roleForm.name, permissions: roleForm.permissions }
+      const payload = { name: roleName }
       const response = editingSlug
         ? await roleManagementApi.updateRole(editingSlug, payload)
         : await roleManagementApi.createRole(payload)
@@ -147,7 +137,7 @@ function RoleManagement() {
         <span className="role-access-mark"><ShieldCheck size={19} aria-hidden="true" /></span>
         <div className="role-access-intro-copy">
           <span>ACCESS CONTROL</span>
-          <strong>Roles &amp; permissions</strong>
+          <strong>Roles</strong>
         </div>
         <span className="role-access-intro-count">{roles.length} roles</span>
       </div>
@@ -158,7 +148,7 @@ function RoleManagement() {
             <UsersRound size={17} aria-hidden="true" />
             <div>
               <h2>Roles</h2>
-              <p>Manage role access across the admin workspace.</p>
+              <p>Create and manage staff roles for the admin workspace.</p>
             </div>
           </div>
           <div className="role-table-actions">
@@ -167,7 +157,7 @@ function RoleManagement() {
               <Search size={14} aria-hidden="true" />
               <input aria-label="Search roles" className="user-search" onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search roles" type="search" value={search} />
             </label>
-            <button className="role-primary-button" onClick={createRole} type="button"><Plus size={15} aria-hidden="true" /> Create role</button>
+            {canCreateRoles && <button className="role-primary-button" onClick={createRole} type="button"><Plus size={15} aria-hidden="true" /> Create role</button>}
           </div>
         </div>
         {loading ? <p className="role-empty">Loading roles…</p> : filteredRoles.length === 0 ? (
@@ -178,7 +168,6 @@ function RoleManagement() {
               <thead>
                 <tr>
                   <th scope="col">Role</th>
-                  <th scope="col">Module access</th>
                   <th scope="col">Users</th>
                   <th scope="col">Type</th>
                   <th scope="col">Created by</th>
@@ -193,23 +182,19 @@ function RoleManagement() {
                       <span className="role-table-name">{role.name}</span>
                       <span className="role-table-slug">{role.slug}</span>
                     </th>
-                    <td>
-                      <div className="role-access-summary">
-                        <strong>{role.permissions.length} modules</strong>
-                        <span>{role.permissions.slice(0, 3).map((key) => permissions.find((item) => item.key === key)?.label ?? key).join(', ')}{role.permissions.length > 3 ? ` +${role.permissions.length - 3}` : ''}</span>
-                      </div>
-                    </td>
                     <td>{role.users_count}</td>
                     <td>{role.is_system ? <span className="role-system-tag"><LockKeyhole size={11} aria-hidden="true" /> System</span> : <span className="role-custom-tag">Custom</span>}</td>
                     <td>{role.created_by ?? 'System'}</td>
                     <td>{formatDate(role.created_at)}</td>
                     <td>
-                      <div className="role-row-actions">
-                        <button aria-label={`Edit ${role.name}`} className="role-icon-button" onClick={() => editRole(role)} title="Edit role" type="button"><Pencil size={14} aria-hidden="true" /></button>
-                        <button aria-label={`Delete ${role.name}`} className="role-icon-button role-delete-button" disabled={deletingSlug === role.slug} onClick={() => deleteRole(role)} title="Delete role" type="button">
-                          <Trash2 size={14} aria-hidden="true" />
-                        </button>
-                      </div>
+                      {canCreateRoles && (
+                        <div className="role-row-actions">
+                          <button aria-label={`Edit ${role.name}`} className="role-icon-button" onClick={() => editRole(role)} title="Edit role" type="button"><Pencil size={14} aria-hidden="true" /></button>
+                          <button aria-label={`Delete ${role.name}`} className="role-icon-button role-delete-button" disabled={deletingSlug === role.slug} onClick={() => deleteRole(role)} title="Delete role" type="button">
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -224,34 +209,22 @@ function RoleManagement() {
         <div className="role-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRoleDialog() }}>
           <section aria-labelledby="role-dialog-title" aria-modal="true" className="role-dialog" onKeyDown={(event) => { if (event.key === 'Escape') closeRoleDialog() }} role="dialog" tabIndex={-1}>
             <div className="role-dialog-heading">
-              <span className="role-heading-icon role-heading-icon-blue"><ShieldCheck size={17} aria-hidden="true" /></span>
-              <div>
+              <span className="role-heading-icon role-heading-icon-blue"><ShieldCheck size={16} aria-hidden="true" /></span>
+              <div className="role-heading-copy">
                 <h2 id="role-dialog-title">{editingSlug ? 'Edit role' : 'Create role'}</h2>
-                <p>Set a name and choose the modules this role can access.</p>
+                <p>{editingSlug ? 'Update the role name.' : 'Enter a name for this role.'}</p>
               </div>
-              <button aria-label="Close dialog" className="role-icon-button" onClick={closeRoleDialog} type="button"><X size={15} aria-hidden="true" /></button>
+              <button aria-label="Close dialog" className="role-icon-button" onClick={closeRoleDialog} type="button"><X size={16} aria-hidden="true" /></button>
             </div>
             {error && <p className="role-feedback role-feedback-error" role="alert">{error}</p>}
             <form className="role-form" onSubmit={saveRole}>
               <label className="role-field">
                 <span>Role name</span>
-                <input autoFocus maxLength={80} minLength={2} onChange={(event) => setRoleForm((current) => ({ ...current, name: event.target.value }))} required value={roleForm.name} />
+                <input autoFocus maxLength={80} minLength={2} onChange={(event) => setRoleName(event.target.value)} required value={roleName} />
               </label>
-              <fieldset className="permission-fieldset">
-                <legend><KeyRound size={13} aria-hidden="true" /> Module access</legend>
-                <div className="permission-grid">
-                  {permissions.map((permission) => (
-                    <label className="permission-option" key={permission.key}>
-                      <input checked={roleForm.permissions.includes(permission.key)} disabled={permission.required} onChange={() => togglePermission(permission)} type="checkbox" />
-                      <span>{permission.label}</span>
-                      {permission.required && <small><LockKeyhole size={11} aria-hidden="true" /> Required</small>}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
               <div className="role-form-actions">
                 <button className="role-primary-button" disabled={savingRole} type="submit">
-                  {editingSlug ? <Check size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
+                  {editingSlug ? <Check size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
                   {savingRole ? 'Saving…' : editingSlug ? 'Save role' : 'Create role'}
                 </button>
                 <button className="quiet-button" onClick={closeRoleDialog} type="button">Cancel</button>

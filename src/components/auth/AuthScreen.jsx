@@ -1,18 +1,24 @@
 import { useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
 import AuthForm from './AuthForm'
 import AuthVisual from './AuthVisual'
 import Brand from '../Brand'
 
-function AuthScreen({ initialMode, initialEmail, onAuthenticated, onPasswordReset }) {
+function AuthScreen({ initialMode = 'login' }) {
+  const { signIn } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [mode, setMode] = useState(initialMode)
   const [values, setValues] = useState({
     name: '',
-    email: initialEmail,
+    email: searchParams.get('email') ?? '',
     password: '',
     password_confirmation: '',
   })
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(location.state?.message ?? '')
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -51,7 +57,7 @@ function AuthScreen({ initialMode, initialEmail, onAuthenticated, onPasswordRese
       errors.password_confirmation = ['The passwords do not match.']
     }
 
-    if (isReset && !new URLSearchParams(window.location.search).get('token')) {
+    if (isReset && !searchParams.get('token')) {
       errors.token = ['This password reset link is incomplete. Request a new reset link.']
     }
 
@@ -69,7 +75,8 @@ function AuthScreen({ initialMode, initialEmail, onAuthenticated, onPasswordRese
     try {
       if (mode === 'login') {
         const result = await authApi.login({ email: values.email.trim(), password: values.password, remember })
-        onAuthenticated(result.user)
+        signIn(result.user)
+        navigate('/', { replace: true })
         return
       }
 
@@ -83,7 +90,6 @@ function AuthScreen({ initialMode, initialEmail, onAuthenticated, onPasswordRese
         setMessage('Your account has been created. An administrator must assign you a staff role before you can access this workspace.')
         setValues((current) => ({ ...current, password: '', password_confirmation: '' }))
         setMode('login')
-        onPasswordReset()
         return
       }
 
@@ -94,15 +100,15 @@ function AuthScreen({ initialMode, initialEmail, onAuthenticated, onPasswordRese
       }
 
       await authApi.resetPassword({
-        token: new URLSearchParams(window.location.search).get('token'),
+        token: searchParams.get('token'),
         email: values.email.trim(),
         password: values.password,
         password_confirmation: values.password_confirmation,
       })
-      setMessage('Your password has been reset. Sign in with your new password.')
-      window.history.replaceState({}, '', window.location.pathname)
-      setValues((current) => ({ ...current, password: '', password_confirmation: '' }))
-      setMode('login')
+      navigate('/login', {
+        replace: true,
+        state: { message: 'Your password has been reset. Sign in with your new password.' },
+      })
     } catch (requestError) {
       setError(requestError.message)
       setFieldErrors(requestError.errors ?? {})

@@ -8,7 +8,7 @@ function PageHeading({ activePage, user }) {
           {activePage === 'Overview'
             ? `Welcome back, ${user.name}. Here is your store operations workspace.`
             : activePage === 'Roles'
-              ? 'Create and manage role access for the admin workspace.'
+              ? 'Create and manage staff roles for the admin workspace.'
               : activePage === 'Users'
                 ? 'Create accounts, assign roles, and manage account status.'
             : `The ${activePage.toLowerCase()} workspace is ready for shared backend data.`}

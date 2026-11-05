@@ -1,17 +1,28 @@
-import { useEffect, useState } from 'react'
 import { Ban, Check, CircleCheck, Pencil, Plus, Search, Trash2, UserRound, X } from 'lucide-react'
-import { userManagementApi } from '../../lib/api'
-import { confirmAction } from '../../lib/confirmAction'
-import { formatDate } from '../../lib/formatDate'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import TablePageSizeSelect from '../../components/tables/TablePageSizeSelect'
 import TablePagination from '../../components/tables/TablePagination'
+import { userManagementApi } from '../../lib/api'
+import { confirmAction } from '../../lib/confirmAction'
+import { formatDate, formatDateTime } from '../../lib/formatDate'
 
 const emptyUserForm = { name: '', email: '', role: '', password: '' }
 const privilegedRoles = ['admin', 'super_admin']
+const actionLabels = {
+  created: 'Created',
+  updated: 'Updated',
+  role_changed: 'Role changed',
+  blocked: 'Blocked',
+  unblocked: 'Unblocked',
+  deleted: 'Deleted',
+}
 
-function UserManagement({ currentUser }) {
+function UserManagement() {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
+  const [activity, setActivity] = useState([])
   const [assignments, setAssignments] = useState({})
   const [userForm, setUserForm] = useState(emptyUserForm)
   const [editingUser, setEditingUser] = useState(null)
@@ -35,6 +46,7 @@ function UserManagement({ currentUser }) {
         if (!active) return
         setUsers(payload.users)
         setRoles(payload.roles)
+        setActivity(payload.activity ?? [])
         setAssignments(Object.fromEntries(payload.users.map((user) => [user.id, user.role])))
       } catch (loadError) {
         if (active) setError(loadError.message)
@@ -46,6 +58,11 @@ function UserManagement({ currentUser }) {
     loadUsers()
     return () => { active = false }
   }, [])
+
+  function rememberActivity(entry) {
+    if (!entry) return
+    setActivity((current) => [entry, ...current.filter((item) => item.id !== entry.id)].slice(0, 50))
+  }
 
   function closeDialog() {
     setDialogOpen(false)
@@ -93,6 +110,7 @@ function UserManagement({ currentUser }) {
         ? current.map((user) => user.id === editingUser.id ? savedUser : user)
         : [...current, savedUser].sort((first, second) => first.name.localeCompare(second.name)))
       setAssignments((current) => ({ ...current, [savedUser.id]: savedUser.role }))
+      rememberActivity(response.activity)
       closeDialog()
     } catch (saveError) {
       setError(saveError.message)
@@ -112,6 +130,7 @@ function UserManagement({ currentUser }) {
       const response = await userManagementApi.assignRole(user.id, role)
       setUsers((current) => current.map((item) => item.id === user.id ? response.user : item))
       setAssignments((current) => ({ ...current, [user.id]: response.user.role }))
+      rememberActivity(response.activity)
     } catch (saveError) {
       setError(saveError.message)
       setAssignments((current) => ({ ...current, [user.id]: user.role }))
@@ -138,6 +157,7 @@ function UserManagement({ currentUser }) {
     try {
       const response = await userManagementApi.setUserStatus(user.id, nextStatus)
       setUsers((current) => current.map((item) => item.id === user.id ? response.user : item))
+      rememberActivity(response.activity)
     } catch (statusError) {
       setError(statusError.message)
     } finally {
@@ -160,6 +180,7 @@ function UserManagement({ currentUser }) {
     try {
       const response = await userManagementApi.deleteUser(user.id)
       setUsers((current) => current.filter((item) => item.id !== user.id))
+      rememberActivity(response.activity)
     } catch (deleteError) {
       setError(deleteError.message)
     } finally {
@@ -172,6 +193,10 @@ function UserManagement({ currentUser }) {
   const currentPage = Math.min(page, totalPages)
   const visibleUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const availableRoles = roles.filter((role) => isSuperAdmin || !privilegedRoles.includes(role.slug) || role.slug === editingUser?.role)
+  const roleCounts = users.reduce((counts, user) => {
+    counts[user.role] = (counts[user.role] ?? 0) + 1
+    return counts
+  }, {})
 
   return (
     <div className="role-management">
@@ -184,6 +209,12 @@ function UserManagement({ currentUser }) {
           <strong>Users &amp; access</strong>
         </div>
         <span className="role-access-intro-count">{users.length} accounts</span>
+      </div>
+
+      <div className="role-share-list" aria-label="Accounts in each role">
+        {roles.map((role) => (
+          <span className="role-custom-tag" key={role.slug}>{role.name} · {roleCounts[role.slug] ?? 0}</span>
+        ))}
       </div>
 
       <section className="panel role-table-panel user-access-panel">
@@ -216,6 +247,7 @@ function UserManagement({ currentUser }) {
                   <th scope="col">Status</th>
                   <th scope="col">Created by</th>
                   <th scope="col">Created date</th>
+                  <th scope="col">Last changed by</th>
                   <th scope="col">Actions</th>
                 </tr>
               </thead>
@@ -253,6 +285,10 @@ function UserManagement({ currentUser }) {
                       <td>{user.created_by ?? 'Self registration'}</td>
                       <td>{formatDate(user.created_at)}</td>
                       <td>
+                        <span className="role-table-name">{user.last_changed_by ?? '—'}</span>
+                        <span className="role-table-slug">{user.last_changed_at ? formatDateTime(user.last_changed_at) : 'No later changes'}</span>
+                      </td>
+                      <td>
                         <div className="role-row-actions">
                           <button aria-label={`Edit ${user.name}`} className="role-icon-button" disabled={rowBusy || protectedUser} onClick={() => startEditUser(user)} title="Edit user" type="button"><Pencil size={14} aria-hidden="true" /></button>
                           <button aria-label={`${user.is_active ? 'Block' : 'Unblock'} ${user.name}`} className="role-icon-button" disabled={rowBusy || isSelf || protectedUser} onClick={() => toggleUserStatus(user)} title={user.is_active ? 'Block user' : 'Unblock user'} type="button">
@@ -271,16 +307,62 @@ function UserManagement({ currentUser }) {
         {!loading && filteredUsers.length > 0 && <TablePagination page={currentPage} pageSize={pageSize} total={filteredUsers.length} onPageChange={setPage} />}
       </section>
 
+      <section className="panel role-table-panel">
+        <div className="role-table-toolbar">
+          <div className="role-table-heading">
+            <UserRound size={17} aria-hidden="true" />
+            <div>
+              <h2>Activity history</h2>
+              <p>Every account change stays recorded with the person who made it.</p>
+            </div>
+          </div>
+        </div>
+        {loading ? <p className="role-empty">Loading activity…</p> : activity.length === 0 ? (
+          <p className="role-empty">No account changes recorded yet.</p>
+        ) : (
+          <div className="role-table-scroll">
+            <table className="role-table user-activity-table">
+              <thead>
+                <tr>
+                  <th scope="col">When</th>
+                  <th scope="col">Performed by</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">Account</th>
+                  <th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activity.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>{formatDateTime(entry.created_at)}</td>
+                    <th scope="row">
+                      <span className="role-table-name">{entry.actor_name}</span>
+                      <span className="role-table-slug">{entry.actor_role}</span>
+                    </th>
+                    <td>{actionLabels[entry.action] ?? entry.action}</td>
+                    <td>
+                      <span className="role-table-name">{entry.subject_name}</span>
+                      <span className="role-table-slug">{entry.subject_email}</span>
+                    </td>
+                    <td>{entry.summary}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {dialogOpen && (
         <div className="role-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog() }}>
           <section aria-labelledby="user-dialog-title" aria-modal="true" className="role-dialog" onKeyDown={(event) => { if (event.key === 'Escape') closeDialog() }} role="dialog" tabIndex={-1}>
             <div className="role-dialog-heading">
-              <span className="role-heading-icon role-heading-icon-green"><UserRound size={17} aria-hidden="true" /></span>
-              <div>
+              <span className="role-heading-icon role-heading-icon-green"><UserRound size={16} aria-hidden="true" /></span>
+              <div className="role-heading-copy">
                 <h2 id="user-dialog-title">{editingUser ? 'Edit user' : 'Create user'}</h2>
                 <p>{editingUser ? 'Update account details and role.' : 'Create an account and choose its role.'}</p>
               </div>
-              <button aria-label="Close dialog" className="role-icon-button" onClick={closeDialog} type="button"><X size={15} aria-hidden="true" /></button>
+              <button aria-label="Close dialog" className="role-icon-button" onClick={closeDialog} type="button"><X size={16} aria-hidden="true" /></button>
             </div>
             {error && <p className="role-feedback role-feedback-error" role="alert">{error}</p>}
             <form className="role-form" onSubmit={saveUser}>

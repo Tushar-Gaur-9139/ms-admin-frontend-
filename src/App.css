@@ -77,6 +77,7 @@
   font: inherit;
   font-size: 12px;
   text-align: left;
+  text-decoration: none;
   transition: background 140ms ease, color 140ms ease;
 }
 
@@ -587,22 +588,6 @@ h1 {
   font-size: 9px;
 }
 
-.role-access-summary {
-  display: grid;
-  gap: 4px;
-}
-
-.role-access-summary strong {
-  color: #435674;
-  font-size: 9px;
-  font-weight: 650;
-}
-
-.role-access-summary span {
-  color: #929baa;
-  font-size: 9px;
-}
-
 .role-custom-tag,
 .role-protected-action {
   color: #78859a;
@@ -617,6 +602,23 @@ h1 {
   padding: 4px 7px;
   color: #41689f;
   font-weight: 600;
+}
+
+.role-share-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-activity-table {
+  min-width: 860px;
+}
+
+.user-activity-table td:last-child {
+  min-width: 280px;
+  color: #526078;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .role-icon-button {
@@ -776,11 +778,11 @@ h1 {
 }
 
 .role-dialog {
-  width: min(540px, 100%);
+  width: min(480px, 100%);
   max-height: min(90vh, 760px);
   overflow-y: auto;
   border: 1px solid #d9e2ef;
-  border-radius: 11px;
+  border-radius: 12px;
   outline: none;
   background: #f4f7fb;
   box-shadow: 0 24px 70px rgb(9 21 38 / 28%);
@@ -789,38 +791,77 @@ h1 {
 .role-dialog-heading {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   border-bottom: 1px solid #dfe6f0;
-  padding: 17px 19px;
+  padding: 18px 20px;
 }
 
 .role-dialog-heading h2 {
   margin: 0 0 4px;
   color: #29364d;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 650;
 }
 
 .role-dialog-heading p {
   margin: 0;
   color: #8792a4;
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.role-dialog-heading .role-heading-icon,
+.role-dialog-heading .role-icon-button {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 8px;
 }
 
 .role-dialog-heading .role-icon-button {
-  flex: 0 0 auto;
   margin-left: auto;
 }
 
 .role-dialog > .role-form,
 .role-dialog > .role-feedback {
-  margin-right: 19px;
-  margin-left: 19px;
+  margin-right: 20px;
+  margin-left: 20px;
 }
 
 .role-dialog > .role-form {
-  margin-bottom: 19px;
+  margin-top: 18px;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.role-dialog .role-field {
+  font-size: 13px;
+}
+
+.role-dialog .role-field input,
+.role-dialog .role-field select {
+  height: 40px;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.role-dialog .role-form-actions {
+  gap: 10px;
+}
+
+.role-dialog .role-primary-button,
+.role-dialog .quiet-button {
+  display: inline-flex;
+  min-height: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .role-dialog > .role-feedback {
@@ -966,62 +1007,6 @@ h1 {
 .user-access-row select:focus {
   border-color: #7e9fe0;
   box-shadow: 0 0 0 3px rgb(73 117 204 / 11%);
-}
-
-.permission-fieldset {
-  min-width: 0;
-  margin: 0;
-  border: 0;
-  padding: 0;
-}
-
-.permission-fieldset legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-  color: #526078;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.permission-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-}
-
-.permission-option {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #dfe6f0;
-  border-radius: 7px;
-  background: #f8fafd;
-  padding: 9px;
-  color: #58657b;
-  font-size: 10px;
-}
-
-.permission-option:has(input:checked) {
-  border-color: #c3d4f1;
-  background: #eaf1fc;
-  color: #354e77;
-}
-
-.permission-option input {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-  margin: 0;
-  accent-color: #3569cf;
-}
-
-.permission-option small {
-  margin-left: auto;
-  color: #9aa2af;
-  font-size: 8px;
 }
 
 .role-form-actions {
@@ -1401,14 +1386,24 @@ h1 {
   }
 
   .role-dialog-heading {
-    align-items: flex-start;
-    padding: 15px;
+    align-items: center;
+    padding: 16px;
   }
 
   .role-dialog > .role-form,
   .role-dialog > .role-feedback {
-    margin-right: 15px;
-    margin-left: 15px;
+    margin-right: 16px;
+    margin-left: 16px;
+  }
+
+  .role-dialog .role-form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .role-dialog .role-primary-button,
+  .role-dialog .quiet-button {
+    width: 100%;
   }
 
   .user-access-heading {
