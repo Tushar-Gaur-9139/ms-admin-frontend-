@@ -8,6 +8,7 @@ import Overview from './components/dashboard/Overview'
 import ComingSoon from './components/dashboard/ComingSoon'
 import RoleManagement from './modules/roles/RoleManagement'
 import UserManagement from './modules/users/UserManagement'
+import CustomerManagement from './modules/customers/CustomerManagement'
 
 function App() {
   return (
@@ -32,7 +33,7 @@ function App() {
             <Route path="inventory" element={<ComingSoon page="Inventory" />} />
           </Route>
           <Route element={<RequirePermission page="Customers" />}>
-            <Route path="customers" element={<ComingSoon page="Customers" />} />
+            <Route path="customers" element={<CustomerManagement />} />
           </Route>
           <Route element={<RequirePermission page="Roles" />}>
             <Route path="roles" element={<RoleManagement />} />
